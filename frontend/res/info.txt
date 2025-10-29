@@ -1,0 +1,1 @@
+we keep images and icons in this directory
