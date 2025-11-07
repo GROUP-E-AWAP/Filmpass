@@ -1,0 +1,22 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env
+.env
+.env.*.local
+
+# Frontend build
+frontend/dist/
+frontend/.vite/
+
+# Backend sqlite database (local)
+backend/filmpass.db
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
