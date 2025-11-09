@@ -47,13 +47,16 @@ async function createTablesIfNotExists() {
   const initPool = new Pool(config);
   
   try {
-    // Create Greetings table if it doesn't exist
+    // Create Movies table if it doesn't exist
     const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS Greetings (
-        Id SERIAL PRIMARY KEY,
-        Text VARCHAR(500) NOT NULL,
+      CREATE TABLE IF NOT EXISTS movies (
+        id uuid PRIMARY KEY,
+        title VARCHAR(100) NOT NULL,
+        description VARCHAR(500),
+        duration_minutes int NOT NULL,
+        poster_url VARCHAR(500),
         CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
+    )
     `;
     
     await initPool.query(createTableQuery);
