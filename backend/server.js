@@ -7,10 +7,45 @@ import crypto from "crypto";
 dotenv.config();
 
 const { Pool } = pkg;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+
+const config = {
+  host: process.env.DB_HOST,
+  database: process.env.DB_DATABASE,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  port: parseInt(process.env.DB_PORT) || 5432,
+  ssl: false,
+  max: 10, // Maximum number of connections in the pool
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
+};
+
+const pool = new Pool(config);
+
+async function createTablesIfNotExists() {
+  // This function uses its own pool to avoid interfering with the main app pool
+  const initPool = new Pool(config);
+  try {
+    // Note: This only creates the 'movies' table. Other tables from your full schema might be missing.
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS movies (
+        id uuid PRIMARY KEY,
+        title VARCHAR(100) NOT NULL,
+        description VARCHAR(500),
+        duration_minutes int NOT NULL,
+        poster_url VARCHAR(500),
+        CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    `;
+    await initPool.query(createTableQuery);
+    console.log('Database tables checked/created successfully.');
+  } catch (error) {
+    console.error('Error creating tables:', error);
+    throw error; // We rethrow the error to prevent the server from starting if the DB is not ready.
+  } finally {
+    await initPool.end();
+  }
+}
 
 const app = express();
 app.use(cors());
@@ -148,8 +183,22 @@ app.post("/bookings", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`API listening on http://localhost:${PORT}`);
-  console.log(`Health: http://localhost:${PORT}/health`);
-});
+async function startServer() {
+  try {
+    await pool.query("SELECT 1");
+    console.log('Connected to PostgreSQL Database.');
+    
+    await createTablesIfNotExists();
+
+    const PORT = process.env.PORT || 8080;
+    app.listen(PORT, () => {
+      console.log(`API listening on http://localhost:${PORT}`);
+      console.log(`Health: http://localhost:${PORT}/health`);
+    });
+  } catch (error) {
+    console.error('Failed to connect to the database and start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
