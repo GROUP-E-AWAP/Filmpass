@@ -14,19 +14,19 @@ const config = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   port: parseInt(process.env.DB_PORT) || 5432,
-  ssl: false,
+  ssl: false, // for local setup
   max: 10, // Maximum number of connections in the pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000
 };
 
 const pool = new Pool(config);
-
+/**
+ * Create database tables if they don't exist.
+ * This function is called during application startup to ensure the database schema is ready.
+ */
 async function createTablesIfNotExists() {
-  // This function uses its own pool to avoid interfering with the main app pool
-  const initPool = new Pool(config);
   try {
-    // Note: This only creates the 'movies' table. Other tables from your full schema might be missing.
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS movies (
         id uuid PRIMARY KEY,
@@ -37,15 +37,17 @@ async function createTablesIfNotExists() {
         CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     `;
-    await initPool.query(createTableQuery);
+    await pool.query(createTableQuery);
     console.log('Database tables checked/created successfully.');
   } catch (error) {
     console.error('Error creating tables:', error);
-    throw error; // We rethrow the error to prevent the server from starting if the DB is not ready.
-  } finally {
-    await initPool.end();
+    // We exit here because if the table setup fails, the app is in an unusable state.
+    process.exit(1); 
   }
 }
+
+// Run the table creation logic on startup.
+createTablesIfNotExists();
 
 const app = express();
 app.use(cors());
@@ -183,22 +185,8 @@ app.post("/bookings", async (req, res) => {
   }
 });
 
-async function startServer() {
-  try {
-    await pool.query("SELECT 1");
-    console.log('Connected to PostgreSQL Database.');
-    
-    await createTablesIfNotExists();
-
-    const PORT = process.env.PORT || 8080;
-    app.listen(PORT, () => {
-      console.log(`API listening on http://localhost:${PORT}`);
-      console.log(`Health: http://localhost:${PORT}/health`);
-    });
-  } catch (error) {
-    console.error('Failed to connect to the database and start server:', error);
-    process.exit(1);
-  }
-}
-
-startServer();
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`API listening on http://localhost:${PORT}`);
+  console.log(`Health: http://localhost:${PORT}/health`);
+});
