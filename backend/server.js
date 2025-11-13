@@ -2,24 +2,35 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import pkg from "pg";
-import crypto from "crypto";
 
 dotenv.config();
 
 const { Pool } = pkg;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT) || 5432,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false
 });
+
+// для контроля, без пароля
+console.log("DB config:", {
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  ssl: process.env.DB_SSL
+});
+
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-function uid(prefix) {
-  return `${prefix}-${crypto.randomBytes(6).toString("hex")}`;
-}
-
+/* Health */
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 app.get("/db-health", async (req, res) => {
@@ -31,12 +42,12 @@ app.get("/db-health", async (req, res) => {
   }
 });
 
-/* ===== Movies list ===== */
-app.get("/movies", async (req, res) => {
+/* Movies list */
+app.get("/movies", async (_req, res) => {
   try {
     const q = `
-      SELECT id, title, description, duration_minutes, poster_url
-      FROM movies
+      SELECT movie_id AS id, title, description, duration_minutes, release_date
+      FROM movie
       ORDER BY title
     `;
     const r = await pool.query(q);
@@ -46,48 +57,41 @@ app.get("/movies", async (req, res) => {
   }
 });
 
-/* ===== Movie details + showtimes ===== */
+/* Movie details + soonest showtimes (join theater) */
 app.get("/movies/:id", async (req, res) => {
-  const id = req.params.id;
+  const id = Number(req.params.id);
   try {
-    const m = await pool.query("SELECT * FROM movies WHERE id = $1", [id]);
+    const m = await pool.query(`
+      SELECT movie_id AS id, title, description, duration_minutes, release_date, genre
+      FROM movie WHERE movie_id = $1
+    `, [id]);
     if (m.rows.length === 0) return res.status(404).json({ error: "Not found" });
-    const s = await pool.query(
-      "SELECT * FROM showtimes WHERE movie_id = $1 ORDER BY start_time",
-      [id]
-    );
+
+    const s = await pool.query(`
+      SELECT s.showtime_id AS id,
+             s.show_date,
+             s.start_time,
+             s.end_time,
+             s.price,
+             t.theater_id,
+             t.name AS theater_name,
+             t.location AS theater_location
+      FROM showtime s
+      JOIN theater t ON t.theater_id = s.theater_id
+      WHERE s.movie_id = $1
+      ORDER BY s.show_date, s.start_time
+    `, [id]);
+
     res.json({ movie: m.rows[0], showtimes: s.rows });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
 });
 
-/* ===== Seats availability for showtime ===== */
-app.get("/showtimes/:id/seats", async (req, res) => {
-  const showId = req.params.id;
-  const sql = `
-    SELECT s.id, s.row_label, s.seat_number,
-           CASE WHEN EXISTS (
-             SELECT 1 FROM booking_seats bs
-             JOIN bookings b ON b.id = bs.booking_id
-             WHERE bs.seat_id = s.id AND b.showtime_id = $1 AND b.status = 'CONFIRMED'
-           ) THEN 'BOOKED' ELSE 'AVAILABLE' END AS status
-    FROM seats s
-    WHERE s.auditorium_id = (SELECT auditorium_id FROM showtimes WHERE id = $1)
-    ORDER BY s.row_label, s.seat_number
-  `;
-  try {
-    const r = await pool.query(sql, [showId]);
-    res.json(r.rows);
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
-});
-
-/* ===== Create booking (transaction) ===== */
+/* Create booking */
 app.post("/bookings", async (req, res) => {
-  const { showtimeId, customerEmail, seats, ticketType } = req.body;
-  if (!showtimeId || !customerEmail || !Array.isArray(seats) || seats.length === 0) {
+  const { userEmail, userName, showtimeId, seats } = req.body;
+  if (!userEmail || !showtimeId || !seats || seats <= 0) {
     return res.status(400).json({ error: "Invalid payload" });
   }
 
@@ -95,51 +99,39 @@ app.post("/bookings", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    const priceRow = await client.query(
-      "SELECT price_adult, price_child FROM showtimes WHERE id = $1",
-      [showtimeId]
-    );
-    if (priceRow.rows.length === 0) {
+    // 1) find or create user
+    // password  NOT NULL, so we add 'guest'
+    const uSel = await client.query(`SELECT user_id FROM public."user" WHERE email = $1 LIMIT 1`, [userEmail]);
+    let userId;
+    if (uSel.rows.length) {
+      userId = uSel.rows[0].user_id;
+    } else {
+      const ins = await client.query(
+        `INSERT INTO public."user"(name, email, password, role) VALUES ($1, $2, 'guest', 'customer') RETURNING user_id`,
+        [userName || userEmail.split("@")[0], userEmail]
+      );
+      userId = ins.rows[0].user_id;
+    }
+
+    // 2) price
+    const pr = await client.query(`SELECT price FROM showtime WHERE showtime_id = $1`, [showtimeId]);
+    if (pr.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Invalid showtime" });
     }
-    const price = ticketType === "child" ? priceRow.rows[0].price_child : priceRow.rows[0].price_adult;
+    const price = Number(pr.rows[0].price || 0);
+    const total = price * Number(seats);
 
-    // check conflicts
-    const placeholders = seats.map((_, i) => `$${i + 1}`).join(",");
-    const params = [...seats, showtimeId];
-    const checkSql = `
-      SELECT s.id
-      FROM seats s
-      WHERE s.id IN (${placeholders})
-      AND EXISTS (
-        SELECT 1 FROM booking_seats bs
-        JOIN bookings b ON b.id = bs.booking_id
-        WHERE bs.seat_id = s.id AND b.showtime_id = $${seats.length + 1} AND b.status = 'CONFIRMED'
-      )
-    `;
-    const conflicts = await client.query(checkSql, params);
-    if (conflicts.rows.length > 0) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ error: "Seat already booked", conflicts: conflicts.rows });
-    }
-
-    const bookingId = uid("bk");
-    const total = Number(price) * seats.length;
-    await client.query(
-      "INSERT INTO bookings (id, user_id, showtime_id, status, total_amount, created_at) VALUES ($1, NULL, $2, 'CONFIRMED', $3, now())",
-      [bookingId, showtimeId, total]
+    // 3) create booking
+    const b = await client.query(
+      `INSERT INTO booking (user_id, showtime_id, seats, total_amount, status)
+       VALUES ($1, $2, $3, $4, 'confirmed')
+       RETURNING booking_id`,
+      [userId, showtimeId, seats, total]
     );
 
-    for (const seatId of seats) {
-      await client.query(
-        "INSERT INTO booking_seats (id, booking_id, seat_id, price) VALUES ($1, $2, $3, $4)",
-        [uid("bks"), bookingId, seatId, price]
-      );
-    }
-
     await client.query("COMMIT");
-    res.status(201).json({ bookingId, total });
+    res.status(201).json({ bookingId: b.rows[0].booking_id, total });
   } catch (e) {
     await client.query("ROLLBACK");
     res.status(500).json({ error: String(e) });
@@ -148,8 +140,22 @@ app.post("/bookings", async (req, res) => {
   }
 });
 
+/* Endpoint for later */
+app.get("/showtimes/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const r = await pool.query(`
+      SELECT showtime_id AS id, movie_id, theater_id, show_date, start_time, end_time, price
+      FROM showtime WHERE movie_id = $1
+      ORDER BY show_date, start_time
+    `, [id]);
+    res.json(r.rows);
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);
-  console.log(`Health: http://localhost:${PORT}/health`);
 });

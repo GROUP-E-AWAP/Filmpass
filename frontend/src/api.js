@@ -9,8 +9,7 @@ async function fetchJSON(path, options) {
 export const api = {
   listMovies: () => fetchJSON("/movies"),
   movieDetails: id => fetchJSON(`/movies/${id}`),
-  seats: showId => fetchJSON(`/showtimes/${showId}/seats`),
-  book: payload =>
+  createBooking: payload =>
     fetchJSON(`/bookings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
