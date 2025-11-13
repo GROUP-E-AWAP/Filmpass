@@ -7,10 +7,47 @@ import crypto from "crypto";
 dotenv.config();
 
 const { Pool } = pkg;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+
+const config = {
+  host: process.env.DB_HOST,
+  database: process.env.DB_DATABASE,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  port: parseInt(process.env.DB_PORT) || 5432,
+  ssl: false, // for local setup
+  max: 10, // Maximum number of connections in the pool
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
+};
+
+const pool = new Pool(config);
+/**
+ * Create database tables if they don't exist.
+ * This function is called during application startup to ensure the database schema is ready.
+ */
+async function createTablesIfNotExists() {
+  try {
+    const createTableQuery = `
+      CREATE TABLE IF NOT EXISTS movies (
+        id uuid PRIMARY KEY,
+        title VARCHAR(100) NOT NULL,
+        description VARCHAR(500),
+        duration_minutes int NOT NULL,
+        poster_url VARCHAR(500),
+        CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    `;
+    await pool.query(createTableQuery);
+    console.log('Database tables checked/created successfully.');
+  } catch (error) {
+    console.error('Error creating tables:', error);
+    // We exit here because if the table setup fails, the app is in an unusable state.
+    process.exit(1); 
+  }
+}
+
+// Run the table creation logic on startup.
+createTablesIfNotExists();
 
 const app = express();
 app.use(cors());

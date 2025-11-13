@@ -7,10 +7,7 @@ const config = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   port: parseInt(process.env.DB_PORT) || 5432,
-  ssl: {
-    // Required for Azure PostgreSQL
-    rejectUnauthorized: true
-  },
+  ssl: false,
   max: 10, // Maximum number of connections in the pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000
