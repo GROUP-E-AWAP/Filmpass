@@ -4,23 +4,65 @@ import { api } from "../api";
 
 export default function Home() {
   const [movies, setMovies] = useState([]);
-  const [err, setErr] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    api.listMovies().then(setMovies).catch(e => setErr(String(e)));
+    api
+      .listMovies()
+      .then(data => {
+        // backend /movies возвращает массив [{ id, title, ... }]
+        setMovies(data);
+      })
+      .catch(e => {
+        console.error("Failed to load movies", e);
+        setError("Failed to load movies");
+      });
   }, []);
 
-  if (err) return <div>Error: {err}</div>;
   return (
     <div>
       <h2>Movies</h2>
-      <ul style={{ lineHeight: 1.8 }}>
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <div className="movie-grid">
         {movies.map(m => (
-          <li key={m.id}>
-            <Link to={`/movie/${m.id}`}>{m.title}</Link>
-          </li>
+          <div className="movie-card" key={m.id}>
+            {m.poster_url && (
+    <img
+      src={m.poster_url}
+      alt={m.title}
+      style={{
+        width: "100%",
+        borderRadius: 8,
+        marginBottom: 10,
+        objectFit: "cover",
+        maxHeight: 260
+      }}
+    />
+  )}
+            <div className="movie-title">{m.title}</div>
+            <div
+              style={{
+                fontSize: 14,
+                opacity: 0.7,
+                marginBottom: 10,
+                minHeight: 40
+              }}
+            >
+              {m.description
+                ? m.description.slice(0, 80) + (m.description.length > 80 ? "…" : "")
+                : "No description yet"}
+            </div>
+            <Link to={`/movie/${m.id}`}>
+              <button>View details</button>
+            </Link>
+          </div>
         ))}
-      </ul>
+        {movies.length === 0 && !error && (
+          <p style={{ marginTop: 10 }}>No movies found.</p>
+        )}
+      </div>
     </div>
   );
 }
