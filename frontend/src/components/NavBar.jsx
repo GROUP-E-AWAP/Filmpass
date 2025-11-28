@@ -1,77 +1,49 @@
+import React from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../auth";
+import { useAuth } from "../authContext.jsx";
 
 export default function NavBar() {
-  const { authUser, logout } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
-    <nav
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "16px 32px",
-        background: "white",
-        borderBottom: "1px solid #e5e7eb"
-      }}
-    >
-      {/* ЛОГО + ТЕКСТ */}
-      <Link
-        to="/"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          textDecoration: "none"
-        }}
-      >
+    <header>
+      {/* ЛОГО + НАЗВАНИЕ */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <img
           src="/north-star-logo.jpg"
           alt="North Star"
-          style={{ height: 40, borderRadius: 6 }}
+          style={{ height: 40, borderRadius: 6, objectFit: "cover" }}
         />
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111" }}>
-          FilmPass
-        </h1>
-      </Link>
-
-      {/* ПРАВАЯ ЧАСТЬ */}
-      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-        <Link to="/movies" style={{ fontSize: 16 }}>
-          Movies
+        <Link to="/" style={{ textDecoration: "none", color: "black" }}>
+          <h1>FilmPass</h1>
         </Link>
+      </div>
 
-        {authUser ? (
+      {/* НАВИГАЦИЯ / ЛОГИН */}
+      <nav style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <Link to="/">Movies</Link>
+
+        {/* Пункт Admin будет виден, когда появятся роли на бэке */}
+        {user && (user.role === "admin" || user.role === "employee") && (
+          <Link to="/admin">Admin</Link>
+        )}
+
+        {user ? (
           <>
-            <span style={{ fontSize: 14, color: "#555" }}>
-              Logged in as {authUser.email}
+            <span className="username">
+              Logged in as <b>{user.email}</b>
             </span>
-
-            <button
-              onClick={logout}
-              style={{
-                background: "#4f46e5",
-                color: "white",
-                padding: "6px 14px",
-                borderRadius: 6,
-                border: "none",
-                cursor: "pointer"
-              }}
-            >
+            <button type="button" onClick={logout}>
               Logout
             </button>
           </>
         ) : (
           <>
-            <Link to="/login" style={{ fontSize: 16 }}>
-              Login
-            </Link>
-            <Link to="/register" style={{ fontSize: 16 }}>
-              Register
-            </Link>
+            <Link to="/login">Login</Link>
+            <Link to="/register">Register</Link>
           </>
         )}
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }

@@ -1,23 +1,31 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 
 export default function Home() {
+  const { theaterId } = useParams();
   const [movies, setMovies] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setMovies([]);
+    setError("");
+
+    if (!theaterId) {
+      setError("Theater is not selected.");
+      return;
+    }
+
     api
-      .listMovies()
+      .listMoviesByTheater(theaterId)
       .then(data => {
-        // backend /movies возвращает массив [{ id, title, ... }]
         setMovies(data);
       })
       .catch(e => {
         console.error("Failed to load movies", e);
         setError("Failed to load movies");
       });
-  }, []);
+  }, [theaterId]);
 
   return (
     <div>
@@ -29,18 +37,18 @@ export default function Home() {
         {movies.map(m => (
           <div className="movie-card" key={m.id}>
             {m.poster_url && (
-    <img
-      src={m.poster_url}
-      alt={m.title}
-      style={{
-        width: "100%",
-        borderRadius: 8,
-        marginBottom: 10,
-        objectFit: "cover",
-        maxHeight: 260
-      }}
-    />
-  )}
+              <img
+                src={m.poster_url}
+                alt={m.title}
+                style={{
+                  width: "100%",
+                  borderRadius: 8,
+                  marginBottom: 10,
+                  objectFit: "cover",
+                  maxHeight: 260
+                }}
+              />
+            )}
             <div className="movie-title">{m.title}</div>
             <div
               style={{
@@ -51,16 +59,17 @@ export default function Home() {
               }}
             >
               {m.description
-                ? m.description.slice(0, 80) + (m.description.length > 80 ? "…" : "")
+                ? m.description.slice(0, 80) +
+                  (m.description.length > 80 ? "…" : "")
                 : "No description yet"}
             </div>
-            <Link to={`/movie/${m.id}`}>
-              <button>View details</button>
+            <Link to={`/movie/${m.id}?theaterId=${encodeURIComponent(theaterId)}`}>
+              <button type="button">View details</button>
             </Link>
           </div>
         ))}
         {movies.length === 0 && !error && (
-          <p style={{ marginTop: 10 }}>No movies found.</p>
+          <p style={{ marginTop: 10 }}>No movies found for this theater.</p>
         )}
       </div>
     </div>

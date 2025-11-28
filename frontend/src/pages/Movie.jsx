@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import SeatMap from "../components/SeatMap.jsx";
 import { getStoredUser } from "../auth";
 
 export default function Movie() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const theaterId = searchParams.get("theaterId");
 
   const [data, setData] = useState(null);
   const [pageError, setPageError] = useState("");
@@ -19,14 +21,18 @@ export default function Movie() {
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
 
-  const [authUser] = useState(() => getStoredUser()); // текущий залогиненный юзер (или null)
+  const [authUser] = useState(() => getStoredUser());
 
-  /* ====== загрузка фильма + сеансов ====== */
+  // загрузка фильма + сеансов (с учётом theaterId, если есть)
   useEffect(() => {
     setLoading(true);
     setPageError("");
+    setShowId("");
+    setSeats([]);
+    setSelected([]);
+
     api
-      .movieDetails(id)
+      .movieDetails(id, theaterId ? { theaterId } : undefined)
       .then(d => {
         setData(d);
         setLoading(false);
@@ -36,9 +42,9 @@ export default function Movie() {
         setPageError(e.message);
         setLoading(false);
       });
-  }, [id]);
+  }, [id, theaterId]);
 
-  /* ====== авто-подстановка имени/почты при логине ====== */
+  // авто-подстановка имени/почты при логине
   useEffect(() => {
     if (authUser) {
       setName(authUser.name || authUser.email || "");
@@ -46,7 +52,7 @@ export default function Movie() {
     }
   }, [authUser]);
 
-  /* ====== загрузка мест для выбранного сеанса ====== */
+  // загрузка мест для выбранного сеанса
   useEffect(() => {
     if (!showId) {
       setSeats([]);
@@ -68,7 +74,6 @@ export default function Movie() {
     [data, showId]
   );
 
-  /* ====== бронирование ====== */
   async function handleBook(e) {
     e.preventDefault();
     setMsg("");
@@ -84,7 +89,6 @@ export default function Movie() {
       ticketType
     };
 
-    // если гость, шлём email и name, иначе полагаемся на JWT
     if (!authUser) {
       if (!email) {
         setMsg("Email is required for guest booking.");
@@ -103,7 +107,6 @@ export default function Movie() {
         ).toFixed(2)}`
       );
 
-      // обновляем статусы мест
       const updatedSeats = await api.seats(showId);
       setSeats(updatedSeats);
       setSelected([]);
@@ -113,44 +116,36 @@ export default function Movie() {
     }
   }
 
-  /* ====== состояния загрузки / ошибки ====== */
-
   if (loading) return <p>Loading...</p>;
-
   if (pageError)
     return <p style={{ color: "red" }}>Error loading movie: {pageError}</p>;
-
   if (!data || !data.movie) return <p>Movie not found.</p>;
 
   const { movie, showtimes = [] } = data;
 
-  /* ====== UI ====== */
-
   return (
-  <div className="movie-page">
-
-    {/* === Постер + информация === */}
-    <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
-      {movie.poster_url && (
-        <img
-          src={movie.poster_url}
-          alt={movie.title}
-          style={{
-            width: 200,
-            borderRadius: 10,
-            objectFit: "cover",
-          }}
-        />
-      )}
-
-      <div>
-        <h2>{movie.title}</h2>
-        {movie.description && (
-          <p style={{ maxWidth: "70%" }}>{movie.description}</p>
+    <div className="movie-page">
+      {/* Постер + инфо */}
+      <div style={{ display: "flex", gap: 20, marginBottom: 20, flexWrap: "wrap" }}>
+        {movie.poster_url && (
+          <img
+            src={movie.poster_url}
+            alt={movie.title}
+            style={{
+              width: 200,
+              borderRadius: 10,
+              objectFit: "cover"
+            }}
+          />
         )}
-      </div>
-    </div>
 
+        <div>
+          <h2>{movie.title}</h2>
+          {movie.description && (
+            <p style={{ maxWidth: "70%" }}>{movie.description}</p>
+          )}
+        </div>
+      </div>
 
       <form
         onSubmit={handleBook}
@@ -199,7 +194,6 @@ export default function Movie() {
           </select>
         </label>
 
-        {/* Если залогинен – показываем инфо, но не просим вводить */}
         {authUser ? (
           <p style={{ fontSize: 14, color: "#555" }}>
             Booking as <b>{authUser.email}</b>

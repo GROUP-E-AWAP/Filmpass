@@ -1,27 +1,22 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser, saveAuth } from "../auth";
+import { useAuth } from "../authContext.jsx";
 
-export default function Login({ onAuth }) {
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login, loading } = useAuth();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setErr("");
-    setLoading(true);
     try {
-      const { token, user } = await loginUser({ email, password });
-      saveAuth(token, user);
-      if (onAuth) onAuth(user);
+      await login(email, password);
       navigate("/");
     } catch (e) {
       setErr(e.message);
-    } finally {
-      setLoading(false);
     }
   }
 
