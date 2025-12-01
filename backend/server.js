@@ -1,12 +1,12 @@
 // backend/server.js
-import dotenv from "dotenv";
+import { JWT_SECRET } from "./config/env.js";
 import { createApp } from "./app.js";
 import { pool } from "./config/db.js";
 
-dotenv.config();
 
-const app = createApp();
 const PORT = process.env.PORT || 8080;
+const app = createApp();
+
 
 app.listen(PORT, () => {
   console.log("DB config:", {
@@ -16,6 +16,8 @@ app.listen(PORT, () => {
     ssl: process.env.DB_SSL
   });
   console.log(`API listening on http://localhost:${PORT}`);
+  console.log("JWT secret loaded:", process.env.JWT_SECRET ? "OK" : "MISSING");
+
 
   pool
     .query("SELECT 1 AS ok")
