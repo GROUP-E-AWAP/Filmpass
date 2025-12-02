@@ -1,6 +1,8 @@
-// backend/modules/admin/admin.repository.js
 import { query } from "../../config/db.js";
 
+/**
+ * Fetch all theaters with basic metadata.
+ */
 export async function adminListTheaters() {
   const result = await query(
     `SELECT theater_id AS id, name, location
@@ -10,6 +12,9 @@ export async function adminListTheaters() {
   return result.rows;
 }
 
+/**
+ * Insert a new theater into the system.
+ */
 export async function adminCreateTheater({ name, location }) {
   const result = await query(
     `INSERT INTO theater (name, location)
@@ -20,6 +25,9 @@ export async function adminCreateTheater({ name, location }) {
   return result.rows[0];
 }
 
+/**
+ * Returns all auditoriums belonging to a given theater.
+ */
 export async function adminListAuditoriums(theaterId) {
   const result = await query(
     `SELECT auditorium_id AS id,
@@ -35,6 +43,9 @@ export async function adminListAuditoriums(theaterId) {
   return result.rows;
 }
 
+/**
+ * Creates an auditorium and stores its seating configuration.
+ */
 export async function adminCreateAuditorium({ theaterId, name, seatRows, seatCols }) {
   const result = await query(
     `INSERT INTO auditorium (theater_id, name, seat_rows, seat_cols)
@@ -45,12 +56,19 @@ export async function adminCreateAuditorium({ theaterId, name, seatRows, seatCol
   return result.rows[0];
 }
 
+/**
+ * Regenerates seats for a given auditorium.
+ * Deletes old seats → creates a full grid using generate_series().
+ * row_label uses ASCII codes: A, B, C...
+ */
 export async function adminGenerateSeatsForAuditorium(auditoriumId, seatRows, seatCols) {
+  // Remove old seats to avoid duplicates
   await query(
     `DELETE FROM seat WHERE auditorium_id = $1`,
     [auditoriumId]
   );
 
+  // Insert new seat grid using PostgreSQL's generate_series()
   await query(
     `
     WITH rows AS (
@@ -61,7 +79,7 @@ export async function adminGenerateSeatsForAuditorium(auditoriumId, seatRows, se
     )
     INSERT INTO seat (auditorium_id, row_label, seat_number)
     SELECT $3::int AS auditorium_id,
-           chr(64 + r) AS row_label,
+           chr(64 + r) AS row_label,   -- Convert row number to letter
            n AS seat_number
     FROM rows CROSS JOIN nums
     `,
@@ -69,6 +87,9 @@ export async function adminGenerateSeatsForAuditorium(auditoriumId, seatRows, se
   );
 }
 
+/**
+ * Return all movies with full metadata.
+ */
 export async function adminListMovies() {
   const result = await query(
     `SELECT movie_id AS id,
@@ -84,6 +105,10 @@ export async function adminListMovies() {
   return result.rows;
 }
 
+/**
+ * Insert a new movie.
+ * Some fields allow null for optional data.
+ */
 export async function adminCreateMovie({
   title,
   genre,
@@ -107,6 +132,10 @@ export async function adminCreateMovie({
   return result.rows[0];
 }
 
+/**
+ * Create a showtime (movie screening event).
+ * start_time and end_time are constructed by merging date + time.
+ */
 export async function adminCreateShowtime({
   movieId,
   theaterId,
@@ -140,6 +169,10 @@ export async function adminCreateShowtime({
   return result.rows[0];
 }
 
+/**
+ * Find a system user by email.
+ * Used mainly for creating employees and preventing duplicates.
+ */
 export async function adminFindUserByEmail(email) {
   const result = await query(
     `SELECT user_id, name, email, role
@@ -151,6 +184,10 @@ export async function adminFindUserByEmail(email) {
   return result.rows[0] || null;
 }
 
+/**
+ * Create a new user (admin or employee).
+ * Password is expected to already be hashed.
+ */
 export async function adminCreateUser({ name, email, passwordHash, role }) {
   const result = await query(
     `INSERT INTO public."user"(name, email, password, role)
@@ -161,6 +198,10 @@ export async function adminCreateUser({ name, email, passwordHash, role }) {
   return result.rows[0];
 }
 
+/**
+ * Link employee to a specific theater.
+ * ON CONFLICT prevents duplicate links.
+ */
 export async function adminLinkEmployeeToTheater(userId, theaterId) {
   const result = await query(
     `INSERT INTO employee_theater (user_id, theater_id)
@@ -172,6 +213,10 @@ export async function adminLinkEmployeeToTheater(userId, theaterId) {
   return result.rows[0] || null;
 }
 
+/**
+ * Returns list of employees with their assigned theaters.
+ * Includes both employees and admins.
+ */
 export async function adminListEmployees() {
   const result = await query(
     `SELECT u.user_id AS id,
@@ -189,10 +234,15 @@ export async function adminListEmployees() {
   return result.rows;
 }
 
+/**
+ * Return bookings filtered by optional criteria.
+ * Dynamic WHERE clause is constructed based on provided filters.
+ */
 export async function adminListBookings({ theaterId, fromDate, toDate }) {
   const params = [];
   const conditions = [];
 
+  // Build dynamic query filters
   if (theaterId) {
     params.push(theaterId);
     conditions.push(`s.theater_id = $${params.length}`);
@@ -208,6 +258,7 @@ export async function adminListBookings({ theaterId, fromDate, toDate }) {
     conditions.push(`b.created_at::date <= $${params.length}`);
   }
 
+  // Construct WHERE if any filters exist
   const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const result = await query(

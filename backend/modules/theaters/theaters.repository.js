@@ -1,5 +1,9 @@
 import { query } from "../../config/db.js";
 
+/**
+ * Return a list of all theaters with basic info.
+ * Ordered alphabetically by name.
+ */
 export async function listTheaters() {
   const result = await query(
     `SELECT theater_id AS id,
@@ -11,6 +15,12 @@ export async function listTheaters() {
   return result.rows;
 }
 
+/**
+ * Return all movies that have at least one showtime
+ * scheduled in the given theater.
+ *
+ * DISTINCT ensures no duplicate movies if multiple showtimes exist.
+ */
 export async function listMoviesByTheater(theaterId) {
   const result = await query(
     `SELECT DISTINCT
@@ -25,5 +35,6 @@ export async function listMoviesByTheater(theaterId) {
       ORDER BY m.title`,
     [theaterId]
   );
+
   return result.rows;
 }

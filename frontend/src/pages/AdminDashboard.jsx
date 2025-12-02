@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
 
+/**
+ * Reusable tab button for AdminDashboard.
+ * Visually highlights the active tab.
+ */
 function TabButton({ active, onClick, children }) {
   return (
     <button
@@ -22,6 +26,11 @@ function TabButton({ active, onClick, children }) {
 
 // ===== Theaters tab =====
 
+/**
+ * Admin tab for managing theaters:
+ *  - list existing theaters
+ *  - create new theater (name + location)
+ */
 function AdminTheatersTab() {
   const [theaters, setTheaters] = useState([]);
   const [name, setName] = useState("");
@@ -29,6 +38,7 @@ function AdminTheatersTab() {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
+  // Fetch list of theaters on initial render
   async function load() {
     try {
       setError("");
@@ -43,6 +53,7 @@ function AdminTheatersTab() {
     load();
   }, []);
 
+  // Handle creation of a new theater
   async function handleCreate(e) {
     e.preventDefault();
     setError("");
@@ -52,7 +63,7 @@ function AdminTheatersTab() {
       setName("");
       setLocation("");
       setMsg("Theater created");
-      await load();
+      await load(); // refresh list
     } catch (e) {
       setError(e.message);
     }
@@ -64,6 +75,7 @@ function AdminTheatersTab() {
       {error && <p style={{ color: "red" }}>{error}</p>}
       {msg && <p style={{ color: "green" }}>{msg}</p>}
 
+      {/* Form: create new theater */}
       <form
         onSubmit={handleCreate}
         style={{ maxWidth: 400, display: "grid", gap: 8, marginBottom: 20 }}
@@ -87,6 +99,7 @@ function AdminTheatersTab() {
         <button type="submit">Add theater</button>
       </form>
 
+      {/* List of existing theaters */}
       <h4>Existing theaters</h4>
       <ul>
         {theaters.map(t => (
@@ -102,16 +115,25 @@ function AdminTheatersTab() {
 
 // ===== Auditoriums tab =====
 
+/**
+ * Admin tab for managing auditoriums inside a theater:
+ *  - select theater
+ *  - create auditorium (name + rows/cols)
+ *  - list auditoriums for selected theater
+ */
 function AdminAuditoriumsTab() {
   const [theaters, setTheaters] = useState([]);
   const [selectedTheaterId, setSelectedTheaterId] = useState("");
   const [auditoriums, setAuditoriums] = useState([]);
+
   const [name, setName] = useState("");
   const [rows, setRows] = useState(10);
   const [cols, setCols] = useState(10);
+
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
+  // Load all theaters once
   useEffect(() => {
     api
       .adminListTheaters()
@@ -119,6 +141,7 @@ function AdminAuditoriumsTab() {
       .catch(e => setError(e.message));
   }, []);
 
+  // When theater changes, load its auditoriums
   useEffect(() => {
     if (!selectedTheaterId) {
       setAuditoriums([]);
@@ -130,6 +153,7 @@ function AdminAuditoriumsTab() {
       .catch(e => setError(e.message));
   }, [selectedTheaterId]);
 
+  // Handle creation of a new auditorium
   async function handleCreate(e) {
     e.preventDefault();
     if (!selectedTheaterId) {
@@ -149,6 +173,7 @@ function AdminAuditoriumsTab() {
       setRows(10);
       setCols(10);
       setMsg("Auditorium created and seats generated");
+
       const data = await api.adminListAuditoriums(selectedTheaterId);
       setAuditoriums(data);
     } catch (e) {
@@ -162,6 +187,7 @@ function AdminAuditoriumsTab() {
       {error && <p style={{ color: "red" }}>{error}</p>}
       {msg && <p style={{ color: "green" }}>{msg}</p>}
 
+      {/* Theater selector for context */}
       <label>
         Theater:
         <select
@@ -178,6 +204,7 @@ function AdminAuditoriumsTab() {
         </select>
       </label>
 
+      {/* Form: create new auditorium inside selected theater */}
       <form
         onSubmit={handleCreate}
         style={{ maxWidth: 400, display: "grid", gap: 8, marginTop: 16 }}
@@ -213,6 +240,7 @@ function AdminAuditoriumsTab() {
         <button type="submit">Add auditorium</button>
       </form>
 
+      {/* List of existing auditoriums for current theater */}
       <h4 style={{ marginTop: 16 }}>Existing auditoriums</h4>
       <ul>
         {auditoriums.map(a => (
@@ -220,7 +248,9 @@ function AdminAuditoriumsTab() {
             <b>{a.name}</b> — {a.seat_rows} rows × {a.seat_cols} seats
           </li>
         ))}
-        {selectedTheaterId && auditoriums.length === 0 && <li>No auditoriums yet.</li>}
+        {selectedTheaterId && auditoriums.length === 0 && (
+          <li>No auditoriums yet.</li>
+        )}
       </ul>
     </div>
   );
@@ -228,11 +258,17 @@ function AdminAuditoriumsTab() {
 
 // ===== Movies + Showtimes tab =====
 
+/**
+ * Admin tab for managing:
+ *  - movie creation
+ *  - showtime creation (movie + theater + auditorium + schedule)
+ */
 function AdminShowtimesTab() {
   const [theaters, setTheaters] = useState([]);
   const [movies, setMovies] = useState([]);
   const [auditoriums, setAuditoriums] = useState([]);
 
+  // Showtime form state
   const [theaterId, setTheaterId] = useState("");
   const [movieId, setMovieId] = useState("");
   const [auditoriumId, setAuditoriumId] = useState("");
@@ -241,6 +277,7 @@ function AdminShowtimesTab() {
   const [endTime, setEndTime] = useState("20:00");
   const [price, setPrice] = useState("12.50");
 
+  // New movie form state
   const [newMovieTitle, setNewMovieTitle] = useState("");
   const [newMovieGenre, setNewMovieGenre] = useState("");
   const [newMovieDuration, setNewMovieDuration] = useState("120");
@@ -250,17 +287,20 @@ function AdminShowtimesTab() {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
+  // Initial data: theaters + movies
   useEffect(() => {
     api
       .adminListTheaters()
       .then(setTheaters)
       .catch(e => setError(e.message));
+
     api
       .adminListMovies()
       .then(setMovies)
       .catch(e => setError(e.message));
   }, []);
 
+  // When theater changes, load auditoriums for that theater
   useEffect(() => {
     if (!theaterId) {
       setAuditoriums([]);
@@ -271,6 +311,7 @@ function AdminShowtimesTab() {
       .adminListAuditoriums(theaterId)
       .then(data => {
         setAuditoriums(data);
+        // Auto-select first auditorium if none selected yet
         if (data.length && !auditoriumId) {
           setAuditoriumId(String(data[0].id));
         }
@@ -278,6 +319,7 @@ function AdminShowtimesTab() {
       .catch(e => setError(e.message));
   }, [theaterId]);
 
+  // Handle movie creation
   async function handleCreateMovie(e) {
     e.preventDefault();
     setError("");
@@ -291,12 +333,17 @@ function AdminShowtimesTab() {
         description: newMovieDesc || null,
         posterUrl: newMoviePoster || null
       });
+
+      // Reset form
       setNewMovieTitle("");
       setNewMovieGenre("");
       setNewMovieDuration("120");
       setNewMoviePoster("");
       setNewMovieDesc("");
+
       setMsg(`Movie "${movie.title}" created`);
+
+      // Refresh movie list
       const data = await api.adminListMovies();
       setMovies(data);
     } catch (e) {
@@ -304,6 +351,7 @@ function AdminShowtimesTab() {
     }
   }
 
+  // Handle showtime creation
   async function handleCreateShowtime(e) {
     e.preventDefault();
     setError("");
@@ -336,6 +384,7 @@ function AdminShowtimesTab() {
       {error && <p style={{ color: "red" }}>{error}</p>}
       {msg && <p style={{ color: "green" }}>{msg}</p>}
 
+      {/* Block: create a new movie */}
       <h4>Create movie</h4>
       <form
         onSubmit={handleCreateMovie}
@@ -383,6 +432,7 @@ function AdminShowtimesTab() {
         <button type="submit">Add movie</button>
       </form>
 
+      {/* Block: create a new showtime */}
       <h4>Create showtime</h4>
       <form
         onSubmit={handleCreateShowtime}
@@ -478,6 +528,12 @@ function AdminShowtimesTab() {
 
 // ===== Employees tab =====
 
+/**
+ * Admin tab for managing employees:
+ *  - create employee/admin account
+ *  - assign to theater
+ *  - list all employees with their theater
+ */
 function AdminEmployeesTab() {
   const [theaters, setTheaters] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -491,6 +547,7 @@ function AdminEmployeesTab() {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
+  // Fetch theaters + employees together
   async function load() {
     try {
       setError("");
@@ -509,14 +566,17 @@ function AdminEmployeesTab() {
     load();
   }, []);
 
+  // Handle creation of a new employee/admin
   async function handleCreate(e) {
     e.preventDefault();
     setError("");
     setMsg("");
+
     if (!theaterId) {
       setError("Select theater");
       return;
     }
+
     try {
       await api.adminCreateEmployee({
         name,
@@ -525,13 +585,17 @@ function AdminEmployeesTab() {
         theaterId: Number(theaterId),
         role
       });
+
+      // Reset form
       setName("");
       setEmail("");
       setPassword("");
       setRole("employee");
       setTheaterId("");
+
       setMsg("Employee created");
-      await load();
+
+      await load(); // refresh list
     } catch (e) {
       setError(e.message);
     }
@@ -543,6 +607,7 @@ function AdminEmployeesTab() {
       {error && <p style={{ color: "red" }}>{error}</p>}
       {msg && <p style={{ color: "green" }}>{msg}</p>}
 
+      {/* Form: create new employee/admin */}
       <form
         onSubmit={handleCreate}
         style={{ maxWidth: 400, display: "grid", gap: 8, marginBottom: 20 }}
@@ -598,22 +663,63 @@ function AdminEmployeesTab() {
         <button type="submit">Add employee</button>
       </form>
 
+      {/* Employees table */}
       <h4>Existing employees</h4>
-      <table style={{ borderCollapse: "collapse", width: "100%", maxWidth: 700 }}>
+      <table
+        style={{ borderCollapse: "collapse", width: "100%", maxWidth: 700 }}
+      >
         <thead>
           <tr>
-            <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 4 }}>Name</th>
-            <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 4 }}>Email</th>
-            <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 4 }}>Role</th>
-            <th style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: 4 }}>Theater</th>
+            <th
+              style={{
+                borderBottom: "1px solid #ddd",
+                textAlign: "left",
+                padding: 4
+              }}
+            >
+              Name
+            </th>
+            <th
+              style={{
+                borderBottom: "1px solid #ddd",
+                textAlign: "left",
+                padding: 4
+              }}
+            >
+              Email
+            </th>
+            <th
+              style={{
+                borderBottom: "1px solid #ddd",
+                textAlign: "left",
+                padding: 4
+              }}
+            >
+              Role
+            </th>
+            <th
+              style={{
+                borderBottom: "1px solid #ddd",
+                textAlign: "left",
+                padding: 4
+              }}
+            >
+              Theater
+            </th>
           </tr>
         </thead>
         <tbody>
           {employees.map(e => (
             <tr key={e.id}>
-              <td style={{ borderBottom: "1px solid #eee", padding: 4 }}>{e.name}</td>
-              <td style={{ borderBottom: "1px solid #eee", padding: 4 }}>{e.email}</td>
-              <td style={{ borderBottom: "1px solid #eee", padding: 4 }}>{e.role}</td>
+              <td style={{ borderBottom: "1px solid #eee", padding: 4 }}>
+                {e.name}
+              </td>
+              <td style={{ borderBottom: "1px solid #eee", padding: 4 }}>
+                {e.email}
+              </td>
+              <td style={{ borderBottom: "1px solid #eee", padding: 4 }}>
+                {e.role}
+              </td>
               <td style={{ borderBottom: "1px solid #eee", padding: 4 }}>
                 {e.theater_name || "—"}
               </td>
@@ -634,6 +740,12 @@ function AdminEmployeesTab() {
 
 // ===== Bookings tab =====
 
+/**
+ * Admin tab for viewing bookings:
+ *  - filter by theater
+ *  - filter by date range
+ *  - see booking totals and statuses
+ */
 function AdminBookingsTab() {
   const [theaters, setTheaters] = useState([]);
   const [theaterId, setTheaterId] = useState("");
@@ -643,6 +755,7 @@ function AdminBookingsTab() {
 
   const [error, setError] = useState("");
 
+  // Load list of theaters for filtering
   useEffect(() => {
     api
       .adminListTheaters()
@@ -650,6 +763,7 @@ function AdminBookingsTab() {
       .catch(e => setError(e.message));
   }, []);
 
+  // Fetch bookings with current filters
   async function load() {
     setError("");
     try {
@@ -664,6 +778,7 @@ function AdminBookingsTab() {
     }
   }
 
+  // Initial bookings load
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -679,6 +794,7 @@ function AdminBookingsTab() {
       <h3>Bookings</h3>
       {error && <p style={{ color: "red" }}>{error}</p>}
 
+      {/* Filters: theater + date range */}
       <form
         onSubmit={handleSubmit}
         style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}
@@ -719,15 +835,30 @@ function AdminBookingsTab() {
         <button type="submit">Filter</button>
       </form>
 
-      <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 14 }}>
+      {/* Bookings table */}
+      <table
+        style={{ borderCollapse: "collapse", width: "100%", fontSize: 14 }}
+      >
         <thead>
           <tr>
-            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>Date</th>
-            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>Customer</th>
-            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>Movie</th>
-            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>Theater</th>
-            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>Status</th>
-            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>Total €</th>
+            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>
+              Date
+            </th>
+            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>
+              Customer
+            </th>
+            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>
+              Movie
+            </th>
+            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>
+              Theater
+            </th>
+            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>
+              Status
+            </th>
+            <th style={{ borderBottom: "1px solid #ddd", padding: 4 }}>
+              Total €
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -768,6 +899,10 @@ function AdminBookingsTab() {
 
 // ===== AdminDashboard main =====
 
+/**
+ * Main admin dashboard component.
+ * Renders tab navigation and active tab content.
+ */
 export default function AdminDashboard() {
   const [tab, setTab] = useState("theaters");
 
@@ -775,24 +910,41 @@ export default function AdminDashboard() {
     <div>
       <h2>Admin panel</h2>
 
+      {/* Tab navigation */}
       <div style={{ display: "flex", gap: 8, margin: "12px 0 20px" }}>
-        <TabButton active={tab === "theaters"} onClick={() => setTab("theaters")}>
+        <TabButton
+          active={tab === "theaters"}
+          onClick={() => setTab("theaters")}
+        >
           Theaters
         </TabButton>
-        <TabButton active={tab === "auditoriums"} onClick={() => setTab("auditoriums")}>
+        <TabButton
+          active={tab === "auditoriums"}
+          onClick={() => setTab("auditoriums")}
+        >
           Auditoriums
         </TabButton>
-        <TabButton active={tab === "showtimes"} onClick={() => setTab("showtimes")}>
+        <TabButton
+          active={tab === "showtimes"}
+          onClick={() => setTab("showtimes")}
+        >
           Movies & showtimes
         </TabButton>
-        <TabButton active={tab === "employees"} onClick={() => setTab("employees")}>
+        <TabButton
+          active={tab === "employees"}
+          onClick={() => setTab("employees")}
+        >
           Employees
         </TabButton>
-        <TabButton active={tab === "bookings"} onClick={() => setTab("bookings")}>
+        <TabButton
+          active={tab === "bookings"}
+          onClick={() => setTab("bookings")}
+        >
           Bookings
         </TabButton>
       </div>
 
+      {/* Active tab content */}
       {tab === "theaters" && <AdminTheatersTab />}
       {tab === "auditoriums" && <AdminAuditoriumsTab />}
       {tab === "showtimes" && <AdminShowtimesTab />}

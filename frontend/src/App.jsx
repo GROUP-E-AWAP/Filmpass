@@ -11,16 +11,28 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 export default function App() {
   return (
+    // Main app layout container (header + routed content + footer)
     <div className="container">
+      {/* Global navigation bar */}
       <NavBar />
 
+      {/* Page content rendered by React Router */}
       <main>
         <Routes>
+          {/* List of theaters */}
           <Route path="/" element={<Theaters />} />
+
+          {/* List of movies for a specific theater */}
           <Route path="/theater/:theaterId" element={<Home />} />
+
+          {/* Movie details + showtimes + seat booking */}
           <Route path="/movie/:id" element={<Movie />} />
+
+          {/* Auth pages */}
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
+
+          {/* Admin section (protected by user roles) */}
           <Route
             path="/admin"
             element={
@@ -32,6 +44,7 @@ export default function App() {
         </Routes>
       </main>
 
+      {/* Simple footer */}
       <footer>
         <span>North Star Cinemas · Demo project</span>
         <span>© {new Date().getFullYear()}</span>

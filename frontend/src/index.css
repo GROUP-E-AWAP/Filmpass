@@ -1,4 +1,5 @@
 /* ===== GLOBAL STYLE ===== */
+/* Base typography, spacing, background */
 body {
   margin: 0;
   padding: 0;
@@ -16,14 +17,16 @@ a:hover {
   text-decoration: underline;
 }
 
-/* ===== LAYOUT ===== */
+/* ===== LAYOUT WRAPPER ===== */
+/* Centers page content and limits width */
 .container {
   max-width: 960px;
   margin: 0 auto;
   padding: 20px;
 }
 
-/* ===== HEADER ===== */
+/* ===== HEADER AREA ===== */
+/* Layout for logo, nav links, and user profile status */
 header {
   display: flex;
   justify-content: space-between;
@@ -48,7 +51,8 @@ nav .username {
   color: #555;
 }
 
-/* ===== MOVIE GRID ===== */
+/* ===== MOVIE GRID LIST ===== */
+/* Responsive card layout used on theater and movie lists */
 .movie-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -76,6 +80,7 @@ nav .username {
 }
 
 /* ===== FORMS ===== */
+/* Reusable styling for all inputs, selects, and form cards */
 form {
   background: white;
   padding: 20px;
@@ -94,6 +99,7 @@ form select {
   border-radius: 6px;
 }
 
+/* Buttons used throughout the application */
 button {
   padding: 10px 15px;
   border: none;
@@ -114,7 +120,8 @@ button:disabled {
   cursor: default;
 }
 
-/* ===== MOVIE PAGE ===== */
+/* ===== MOVIE PAGE LAYOUT ===== */
+/* Contains poster, description, showtime selector, seat map */
 .movie-page {
   background: white;
   padding: 24px;
@@ -125,6 +132,7 @@ button:disabled {
 }
 
 /* ===== FOOTER ===== */
+/* Simple centered footer with separator line */
 footer {
   margin-top: 40px;
   padding: 16px 0 24px;
@@ -140,7 +148,8 @@ footer span:last-child {
   opacity: 0.9;
 }
 
-/* ===== SIMPLE RESPONSIVE LAYOUT ===== */
+/* ===== RESPONSIVE RULES ===== */
+/* Adjust spacing and layout for tablets and phones */
 @media (max-width: 768px) {
   .container {
     padding: 12px;
@@ -169,6 +178,8 @@ footer span:last-child {
     align-items: flex-start;
   }
 }
+
+/* Full-height layout: footer stays at bottom */
 html, body, #root {
   height: 100%;
   margin: 0;

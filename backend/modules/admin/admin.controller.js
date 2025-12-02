@@ -1,4 +1,3 @@
-// backend/modules/admin/admin.controller.js
 import {
   adminCreateAuditoriumService,
   adminCreateEmployeeService,
@@ -12,6 +11,10 @@ import {
   adminListTheatersService
 } from "./admin.service.js";
 
+/**
+ * GET /admin/theaters
+ * Returns a list of all theaters for admin dashboard.
+ */
 export async function adminListTheatersController(_req, res, next) {
   try {
     const theaters = await adminListTheatersService();
@@ -21,6 +24,10 @@ export async function adminListTheatersController(_req, res, next) {
   }
 }
 
+/**
+ * POST /admin/theaters
+ * Creates a new theater using data from the request body.
+ */
 export async function adminCreateTheaterController(req, res, next) {
   try {
     const theater = await adminCreateTheaterService(req.body);
@@ -30,12 +37,19 @@ export async function adminCreateTheaterController(req, res, next) {
   }
 }
 
+/**
+ * GET /admin/theaters/:theaterId/auditoriums
+ * Returns all auditoriums that belong to a specific theater.
+ */
 export async function adminListAuditoriumsController(req, res, next) {
   try {
     const theaterId = Number(req.params.theaterId);
+
+    // Basic validation for path parameter
     if (Number.isNaN(theaterId)) {
       return res.status(400).json({ error: "Invalid theater id" });
     }
+
     const data = await adminListAuditoriumsService(theaterId);
     res.json(data);
   } catch (e) {
@@ -43,6 +57,10 @@ export async function adminListAuditoriumsController(req, res, next) {
   }
 }
 
+/**
+ * POST /admin/auditoriums
+ * Creates a new auditorium (screening room) in a theater.
+ */
 export async function adminCreateAuditoriumController(req, res, next) {
   try {
     const auditorium = await adminCreateAuditoriumService(req.body);
@@ -52,6 +70,10 @@ export async function adminCreateAuditoriumController(req, res, next) {
   }
 }
 
+/**
+ * GET /admin/movies
+ * Returns a list of all movies available in the system.
+ */
 export async function adminListMoviesController(_req, res, next) {
   try {
     const movies = await adminListMoviesService();
@@ -61,6 +83,10 @@ export async function adminListMoviesController(_req, res, next) {
   }
 }
 
+/**
+ * POST /admin/movies
+ * Creates a new movie entry with metadata (title, description, etc.).
+ */
 export async function adminCreateMovieController(req, res, next) {
   try {
     const movie = await adminCreateMovieService(req.body);
@@ -70,6 +96,10 @@ export async function adminCreateMovieController(req, res, next) {
   }
 }
 
+/**
+ * POST /admin/showtimes
+ * Creates a showtime (movie + auditorium + time + price).
+ */
 export async function adminCreateShowtimeController(req, res, next) {
   try {
     const showtime = await adminCreateShowtimeService(req.body);
@@ -79,6 +109,10 @@ export async function adminCreateShowtimeController(req, res, next) {
   }
 }
 
+/**
+ * POST /admin/employees
+ * Creates a new employee/user (e.g. manager, cashier, admin).
+ */
 export async function adminCreateEmployeeController(req, res, next) {
   try {
     const user = await adminCreateEmployeeService(req.body);
@@ -88,6 +122,10 @@ export async function adminCreateEmployeeController(req, res, next) {
   }
 }
 
+/**
+ * GET /admin/employees
+ * Returns a list of all employees managed by admin.
+ */
 export async function adminListEmployeesController(_req, res, next) {
   try {
     const employees = await adminListEmployeesService();
@@ -97,14 +135,23 @@ export async function adminListEmployeesController(_req, res, next) {
   }
 }
 
+/**
+ * GET /admin/bookings
+ * Returns bookings filtered by optional query parameters:
+ *  - theaterId: only bookings for this theater
+ *  - fromDate / toDate: date range for booking showtimes
+ */
 export async function adminListBookingsController(req, res, next) {
   try {
     const { theaterId, fromDate, toDate } = req.query;
+
+    // Normalize and typecast filters for the service layer
     const filters = {
       theaterId: theaterId ? Number(theaterId) : undefined,
       fromDate: fromDate || undefined,
       toDate: toDate || undefined
     };
+
     const bookings = await adminListBookingsService(filters);
     res.json(bookings);
   } catch (e) {
